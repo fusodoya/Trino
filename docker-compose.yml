@@ -1,0 +1,81 @@
+version: "3.9"
+services:
+  mysql:
+    container_name: mysql
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_USER: mysql_user
+      MYSQL_PASSWORD: mysql_password
+      MYSQL_ROOT_PASSWORD: mysql_root_password
+      MYSQL_DATABASE: mysql_db
+
+  minio:
+    image: minio/minio
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_storage:/data
+    environment:
+      MINIO_ACCESS_KEY: minio_access_key
+      MINIO_SECRET_KEY: minio_secret_key
+    command: server --console-address ":9001" /data
+
+  metastore:
+    container_name: metastore
+    image: postgres:11
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: hive_user
+      POSTGRES_PASSWORD: hive_password
+      POSTGRES_DB: metastore_db
+
+  hive-metastore:
+    container_name: hive-metastore
+    image: "starburstdata/hive:3.1.2-e.18"
+    ports:
+      - "9083:9083"
+    environment:
+      HIVE_METASTORE_DRIVER: org.postgresql.Driver
+      HIVE_METASTORE_JDBC_URL: jdbc:postgresql://metastore:5432/metastore_db
+      HIVE_METASTORE_USER: hive_user
+      HIVE_METASTORE_PASSWORD: hive_password
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minio_access_key
+      S3_SECRET_KEY: minio_secret_key
+      S3_PATH_STYLE_ACCESS: "true"
+      # Below arguments exist for no reasons, but container can not live without it
+      REGION: ""
+      GOOGLE_CLOUD_KEY_FILE_PATH: ""
+      AZURE_ADL_CLIENT_ID: ""
+      AZURE_ADL_CREDENTIAL: ""
+      AZURE_ADL_REFRESH_URL: ""
+      AZURE_ABFS_STORAGE_ACCOUNT: ""
+      AZURE_ABFS_ACCESS_KEY: ""
+      AZURE_WASB_STORAGE_ACCOUNT: ""
+      AZURE_ABFS_OAUTH: ""
+      AZURE_ABFS_OAUTH_TOKEN_PROVIDER: ""
+      AZURE_ABFS_OAUTH_CLIENT_ID: ""
+      AZURE_ABFS_OAUTH_SECRET: ""
+      AZURE_ABFS_OAUTH_ENDPOINT: ""
+      AZURE_WASB_ACCESS_KEY: ""
+    depends_on:
+      - metastore
+
+  trino:
+    ports:
+      - "8085:8080"
+    container_name: trino
+    image: "trinodb/trino:410"
+    volumes:
+      - ./trino/etc:/usr/lib/trino/etc:ro
+      - ./trino/catalog:/etc/trino/catalog
+    depends_on:
+      - hive-metastore
+
+volumes:
+  minio_storage:

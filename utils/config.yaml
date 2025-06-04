@@ -1,0 +1,5 @@
+datalake:
+  endpoint: localhost:9000
+  bucket_name: trino
+  access_key: minio_access_key
+  secret_key: minio_secret_key
